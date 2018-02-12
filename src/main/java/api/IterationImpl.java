@@ -1,17 +1,19 @@
 package api;
 
-import api.Iteration;
 import model.Cell;
 import model.Table;
 
-import java.util.*;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class IterationImpl implements Iteration {
 
     private Map<String, Table> tables;
 
     public IterationImpl(Map<String, Table>  tables) {
-        this.tables = new HashMap<>(tables);
+        this.tables = new ConcurrentHashMap<>(tables);
     }
 
     @Override

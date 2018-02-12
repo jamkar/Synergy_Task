@@ -9,14 +9,16 @@ import util.DbUtils;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class QueryImpl implements Query {
 
-    private Map<String, Table> tables;
+    private Map<String, Table> tables; // Is it OK for the class being thread-safe;
+    // it is better to return ResultSet instead of this
 
-    private Connection connection;
-    private Statement statement;
-    private ResultSet rs;
+//    private Connection connection;
+//    private Statement statement;
+//    private ResultSet rs;
 
     @Override
     public void execute(TableName categoryOnTable, TableName categoryOnColumn,
@@ -30,7 +32,7 @@ public class QueryImpl implements Query {
                 getNamesIdsFromCategoryOnTable(categoryOnTable);
 
         // Execute query for each table
-        Map<String, Table> tables = new HashMap<>();
+        Map<String, Table> tables = new ConcurrentHashMap<>();
         for (String tableName : categoryOnTableNamesAndIds.keySet()) {
             tables.put(tableName, executeAndGetPivotTable(categoryOnTable.getName(), categoryOnTableNamesAndIds.get(tableName), tableName,
                     categoryOnColumn.getName(), categoryOnRow.getName(), measure.getName()));
@@ -41,6 +43,9 @@ public class QueryImpl implements Query {
 
     private Map<String, Integer> getNamesIdsFromCategoryOnTable(TableName categoryOnTable) {
         Map<String, Integer> categoryOnTableNamesIds = new HashMap<>();
+        Connection connection = null;
+        Statement statement = null;
+        ResultSet rs = null;
         try {
             connection = DbUtils.getConnection();
             statement = connection.createStatement();
@@ -50,9 +55,17 @@ public class QueryImpl implements Query {
                 categoryOnTableNamesIds.put(rs.getString("Name"), rs.getInt("Id"));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DatabaseException();
         } finally {
-            close();
+//            close();
+            try {
+                if (rs != null)
+                    rs.close();
+                if (statement != null)
+                    statement.close();
+                if (connection != null)
+                    connection.close();
+            } catch (SQLException ex) { }
         }
         return categoryOnTableNamesIds;
     }
@@ -65,26 +78,37 @@ public class QueryImpl implements Query {
 //        System.out.println(query);
 
         Table table = new Table(categoryOnTableName);
+        Connection connection = null;
+        Statement statement = null;
+        ResultSet rs = null;
         try {
             connection = DbUtils.getConnection();
             statement = connection.createStatement();
             rs = statement.executeQuery(query);
-            ResultSetMetaData rsMeta = rs.getMetaData();
-            int columnCount = rsMeta.getColumnCount();
 
-            extractHeaderAndFirstRowAndAddToTable(categoryOnTableName, table, rsMeta, columnCount);
-            extractCellsAndAddToTable(categoryOnTableName, table, rsMeta, columnCount);
+            extractHeaderAndFirstRowAndAddToTable(categoryOnTableName, table, rs);
+            extractCellsAndAddToTable(categoryOnTableName, table, rs);
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DatabaseException();
         } finally {
-            close();
+//            close();
+            try {
+                if (rs != null)
+                    rs.close();
+                if (statement != null)
+                    statement.close();
+                if (connection != null)
+                    connection.close();
+            } catch (SQLException ex) { }
         }
 
         return table;
     }
 
-    private void extractHeaderAndFirstRowAndAddToTable(String categoryOnTableName, Table table, ResultSetMetaData rsMeta, int columnCount) throws SQLException {
+    private void extractHeaderAndFirstRowAndAddToTable(String categoryOnTableName, Table table, ResultSet rs) throws SQLException {
+        ResultSetMetaData rsMeta = rs.getMetaData();
+        int columnCount = rsMeta.getColumnCount();
         String rowName;
         rs.next();
         rowName = rs.getString(1);
@@ -103,7 +127,9 @@ public class QueryImpl implements Query {
         }
     }
 
-    private void extractCellsAndAddToTable(String categoryOnTableName, Table table, ResultSetMetaData rsMeta, int columnCount) throws SQLException {
+    private void extractCellsAndAddToTable(String categoryOnTableName, Table table, ResultSet rs) throws SQLException {
+        ResultSetMetaData rsMeta = rs.getMetaData();
+        int columnCount = rsMeta.getColumnCount();
         String rowName;
         while (rs.next()) {
             rowName = rs.getString(1);
@@ -153,6 +179,9 @@ public class QueryImpl implements Query {
 
     private String getQueryPartForColumnNames(String categoryOnColumn, String measure) {
         StringBuilder query = new StringBuilder();
+        Connection connection = null;
+        Statement statement = null;
+        ResultSet rs = null;
         try {
             connection = DbUtils.getConnection();
             statement = connection.createStatement();
@@ -166,16 +195,24 @@ public class QueryImpl implements Query {
             }
             query.deleteCharAt(query.length() - 2); // Remove last comma
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DatabaseException();
         } finally {
-            close();
+//            close();
+            try {
+                if (rs != null)
+                    rs.close();
+                if (statement != null)
+                    statement.close();
+                if (connection != null)
+                    connection.close();
+            } catch (SQLException ex) { }
         }
         return query.toString();
     }
 
     @Override
     public Map<String, Table> getResult() {
-        return new HashMap<>(tables);
+        return new ConcurrentHashMap<>(tables);
     }
 
     @Override
@@ -183,14 +220,14 @@ public class QueryImpl implements Query {
         return new IterationImpl(tables);
     }
 
-    private void close() {
-        try {
-            if (rs != null)
-                rs.close();
-            if (statement != null)
-                statement.close();
-            if (connection != null)
-                connection.close();
-        } catch (SQLException ex) { }
-    }
+//    private void close() {
+//        try {
+//            if (rs != null)
+//                rs.close();
+//            if (statement != null)
+//                statement.close();
+//            if (connection != null)
+//                connection.close();
+//        } catch (SQLException ex) { }
+//    }
 }

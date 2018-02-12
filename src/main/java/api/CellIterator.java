@@ -25,13 +25,10 @@ public class CellIterator implements Iterator<Cell> {
 
     @Override
     public Cell next() {
-        Cell currentCell;
-        try {
-            currentCell = cells.get(cursor++);
-        } catch (IndexOutOfBoundsException ex) {
+        if (!hasNext()) {
             throw new NoSuchElementException("There are no more cells in the table");
         }
-        return currentCell;
+        return cells.get(cursor++);
     }
 
     @Override
